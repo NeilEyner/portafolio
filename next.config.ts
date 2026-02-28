@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
         hostname: 'cdn.simpleicons.org',
       },
     ],
-    // Para imágenes locales NO necesitas configuración extra
+    // Para imágenes locales NO necesitas configuración extra 
     unoptimized: false,
   },
 };
