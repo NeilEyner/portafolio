@@ -1,46 +1,26 @@
-// app/layout.tsx
-import type { Metadata, Viewport } from "next";
-import { Outfit, Space_Mono } from "next/font/google";
-import "./globals.css";
-
-/* ── Fuentes de Google (Next.js las sirve localmente) ────── */
-const outfit = Outfit({
-  subsets:  ["latin"],
-  weight:   ["300","400","500","600","700","900"],
-  variable: "--fuente-titulo",
-  display:  "swap",
-});
-
-const spaceMono = Space_Mono({
-  subsets:  ["latin"],
-  weight:   ["400","700"],
-  variable: "--fuente-mono",
-  display:  "swap",
-});
-
-/* ── Metadatos ──────────────────────────────────────────── */
+import type { Metadata } from 'next';
+import './globals.css';
 export const metadata: Metadata = {
-  title:       "Neil Eyner Canaviri Huanca · Portafolio",
-  description: "Desarrollador Web Front-End · Informático · La Paz, Bolivia",
-  authors:     [{ name: "Neil Eyner Canaviri Huanca" }],
-  keywords:    ["portafolio","desarrollador web","front-end","sistemas","La Paz","Bolivia"],
-  openGraph: {
-    title:       "Neil Eyner · Portafolio",
-    description: "Desarrollador Web Front-End · Informático · La Paz, Bolivia",
-    type:        "website",
-    locale:      "es_BO",
-  },
+  title: 'Neil Eyner Canaviri — Portafolio',
+  description: 'Portafolio profesional de Neil Eyner Canaviri Huanca',
 };
 
-export const viewport: Viewport = {
-  width:          "device-width",
-  initialScale:   1,
-  themeColor:     "#1a1d2e",
-};
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function LayoutRaiz({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="es" data-tema="oscuro" className={`${outfit.variable} ${spaceMono.variable}`}>
+    <html lang="es">
+      <head>
+        {/* Fuentes de Google */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body>{children}</body>
     </html>
   );

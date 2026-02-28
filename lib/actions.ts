@@ -1,145 +1,171 @@
-// lib/actions.ts
-// Server Actions de Next.js 14+
-// Se llaman directamente desde Client Components sin crear endpoints manualmente.
+'use server';
 
-"use server";
+import { bd } from '@/db';
+import { mensajeContacto, propietario, proyecto } from '@/db/esquema';
+import { eq } from 'drizzle-orm';
+import { revalidatePath } from 'next/cache';
 
-import { revalidatePath } from "next/cache";
-import { headers }        from "next/headers";
-import { guardarMensaje } from "./queries";
-import { db }             from "./db";
-import { propietario }    from "./schema.drizzle";
-import { eq }             from "drizzle-orm";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
-
-/* ════════════════════════════════════════════════════════════
-   1. ENVIAR MENSAJE DE CONTACTO
-   ════════════════════════════════════════════════════════ */
+// ─────────────────────────────────────────────────────────
+// TIPOS
+// ─────────────────────────────────────────────────────────
 export type EstadoMensaje = {
-  ok:      boolean;
+  ok: boolean;
   mensaje: string;
 };
 
-export async function enviarMensajeContacto(
-  _estado: EstadoMensaje,
-  formData: FormData
-): Promise<EstadoMensaje> {
+export type EstadoFoto = {
+  ok: boolean;
+  mensaje: string;
+  ruta?: string;
+};
 
-  // ── Extraer campos ─────────────────────────────────────
-  const nombre  = (formData.get("nombre")  as string)?.trim();
-  const correo  = (formData.get("correo")  as string)?.trim();
-  const asunto  = (formData.get("asunto")  as string)?.trim();
-  const mensaje = (formData.get("mensaje") as string)?.trim();
+// ─────────────────────────────────────────────────────────
+// HELPER INTERNO — sube un archivo y devuelve la URL pública
+// Usa Vercel Blob en producción, filesystem local en desarrollo
+// ─────────────────────────────────────────────────────────
+async function subirArchivo(
+  archivo: File,
+  carpeta: string         // ej: 'perfiles', 'proyectos', 'iconos'
+): Promise<string> {
+  const extension     = archivo.name.split('.').pop() ?? 'jpg';
+  const nombreArchivo = `${carpeta}-${Date.now()}.${extension}`;
 
-  // ── Validaciones básicas ──────────────────────────────
-  if (!nombre || nombre.length < 2) {
-    return { ok: false, mensaje: "El nombre debe tener al menos 2 caracteres." };
-  }
-  if (!correo || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
-    return { ok: false, mensaje: "Ingresa un correo electrónico válido." };
-  }
-  if (!mensaje || mensaje.length < 10) {
-    return { ok: false, mensaje: "El mensaje debe tener al menos 10 caracteres." };
-  }
-  if (mensaje.length > 2000) {
-    return { ok: false, mensaje: "El mensaje no puede superar los 2000 caracteres." };
+  // ── Vercel Blob (producción) ──────────────────────────
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const { put } = await import('@vercel/blob');
+    const blob = await put(`${carpeta}/${nombreArchivo}`, archivo, {
+      access: 'public',
+    });
+    return blob.url;
   }
 
-  // ── Obtener IP del visitante ──────────────────────────
-  const cabeceras = await headers();
-  const ip =
-    cabeceras.get("x-forwarded-for")?.split(",")[0] ??
-    cabeceras.get("x-real-ip") ??
-    "desconocida";
-
-  // ── Guardar en DB ──────────────────────────────────── 
-  try {
-    await guardarMensaje({ nombre, correo, asunto, mensaje, ip });
-    return { ok: true, mensaje: "¡Mensaje enviado con éxito! Te responderé pronto." };
-  } catch (error) {
-    console.error("[enviarMensajeContacto]", error);
-    return { ok: false, mensaje: "Error al enviar el mensaje. Inténtalo nuevamente." };
-  }
+  // ── Filesystem local (desarrollo) ─────────────────────
+  const { writeFile, mkdir } = await import('fs/promises');
+  const path  = await import('path');
+  const destino = path.join(process.cwd(), 'public', 'uploads', carpeta);
+  await mkdir(destino, { recursive: true });
+  const bytes = await archivo.arrayBuffer();
+  await writeFile(path.join(destino, nombreArchivo), Buffer.from(bytes));
+  return `/uploads/${carpeta}/${nombreArchivo}`;
 }
 
-/* ════════════════════════════════════════════════════════════
-   2. SUBIR FOTOGRAFÍA DE PERFIL
-   ════════════════════════════════════════════════════════ */
-export type EstadoFoto = {
-  ok:      boolean;
-  mensaje: string;
-  ruta?:   string;
-};
+// ─────────────────────────────────────────────────────────
+// VALIDAR IMAGEN — devuelve error o null si es válida
+// ─────────────────────────────────────────────────────────
+function validarImagen(archivo: File | null): string | null {
+  if (!archivo || archivo.size === 0) return 'No se seleccionó ningún archivo.';
 
+  const tiposPermitidos = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/svg+xml'];
+  if (!tiposPermitidos.includes(archivo.type))
+    return 'Solo se permiten imágenes JPG, PNG, WebP o SVG.';
+
+  const TAMANO_MAXIMO = 5 * 1024 * 1024; // 5 MB
+  if (archivo.size > TAMANO_MAXIMO)
+    return 'La imagen no debe superar los 5 MB.';
+
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────
+// SUBIR FOTO DE PERFIL
+// ─────────────────────────────────────────────────────────
 export async function subirFotoPerfil(
-  _estado: EstadoFoto,
+  estadoAnterior: EstadoFoto,
   formData: FormData
 ): Promise<EstadoFoto> {
-
-  const archivo = formData.get("foto") as File | null;
-
-  // ── Validaciones ──────────────────────────────────────
-  if (!archivo || archivo.size === 0) {
-    return { ok: false, mensaje: "No se recibió ningún archivo." };
-  }
-  if (!["image/jpeg","image/png","image/webp","image/avif"].includes(archivo.type)) {
-    return { ok: false, mensaje: "Formato no permitido. Usa JPG, PNG o WEBP." };
-  }
-  if (archivo.size > 5 * 1024 * 1024) { // 5 MB máx
-    return { ok: false, mensaje: "La imagen no puede superar los 5 MB." };
-  }
-
   try {
-    // ── Guardar en /public/uploads/ ──────────────────── 
-    const extension   = archivo.name.split(".").pop() ?? "jpg";
-    const nombreFinal = `perfil-${Date.now()}.${extension}`;
-    const dirPublic   = path.join(process.cwd(), "public", "uploads");
-    const rutaFinal   = path.join(dirPublic, nombreFinal);
+    const archivo = formData.get('foto') as File | null;
+    const error   = validarImagen(archivo);
+    if (error) return { ok: false, mensaje: error };
 
-    await mkdir(dirPublic, { recursive: true });
+    const rutaPublica = await subirArchivo(archivo!, 'perfiles');
 
-    const buffer = Buffer.from(await archivo.arrayBuffer());
-    await writeFile(rutaFinal, buffer);
-
-    const rutaRelativa = `/uploads/${nombreFinal}`;
-
-    // ── Actualizar la ruta en la DB ───────────────────── 
-    await db
-      .update(propietario)
-      .set({ fotoRuta: rutaRelativa })
+    await bd.update(propietario)
+      .set({ fotoRuta: rutaPublica })
       .where(eq(propietario.id, 1));
 
-    // Invalidar la caché de la página principal
-    revalidatePath("/");
-
-    return { ok: true, mensaje: "Fotografía actualizada con éxito.", ruta: rutaRelativa };
-
-  } catch (error) {
-    console.error("[subirFotoPerfil]", error);
-    return { ok: false, mensaje: "Error al guardar la fotografía." };
+    revalidatePath('/');
+    return { ok: true, mensaje: 'Fotografía actualizada.', ruta: rutaPublica };
+  } catch (err) {
+    console.error('Error al subir foto de perfil:', err);
+    return { ok: false, mensaje: 'Error al subir la imagen. Intenta de nuevo.' };
   }
 }
 
-/* ════════════════════════════════════════════════════════════
-   3. ACTUALIZAR PREFERENCIAS DE TEMA
-   (persiste el tema elegido en DB para todos los visitantes)
-   ════════════════════════════════════════════════════════ */
-export async function guardarPreferenciaTema(
-  tema:  "oscuro" | "claro",
-  color: string
-): Promise<void> {
+// ─────────────────────────────────────────────────────────
+// SUBIR IMAGEN DE PROYECTO — llamada desde el admin
+// ─────────────────────────────────────────────────────────
+export async function subirImagenProyecto(
+  proyectoId: number,
+  archivo: File
+): Promise<{ ok: boolean; ruta?: string; error?: string }> {
   try {
-    await db
-      .update(propietario)
-      .set({
-        temaOscuro: tema === "oscuro",
-        temaColor:  color,
-      })
-      .where(eq(propietario.id, 1));
+    const error = validarImagen(archivo);
+    if (error) return { ok: false, error };
 
-    revalidatePath("/");
-  } catch (error) {
-    console.error("[guardarPreferenciaTema]", error);
+    const rutaPublica = await subirArchivo(archivo, 'proyectos');
+
+    await bd.update(proyecto)
+      .set({ imagenPrincipal: rutaPublica })
+      .where(eq(proyecto.id, proyectoId));
+
+    revalidatePath('/');
+    return { ok: true, ruta: rutaPublica };
+  } catch (err) {
+    console.error('Error al subir imagen de proyecto:', err);
+    return { ok: false, error: 'Error al subir la imagen del proyecto.' };
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// SUBIR ICONO DE HABILIDAD
+// ─────────────────────────────────────────────────────────
+export async function subirIconoHabilidad(
+  archivo: File
+): Promise<{ ok: boolean; ruta?: string; error?: string }> {
+  try {
+    const error = validarImagen(archivo);
+    if (error) return { ok: false, error };
+
+    const rutaPublica = await subirArchivo(archivo, 'iconos');
+    return { ok: true, ruta: rutaPublica };
+  } catch (err) {
+    console.error('Error al subir ícono:', err);
+    return { ok: false, error: 'Error al subir el ícono.' };
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// ENVIAR MENSAJE DE CONTACTO
+// ─────────────────────────────────────────────────────────
+export async function enviarMensajeContacto(
+  estadoAnterior: EstadoMensaje,
+  formData: FormData
+): Promise<EstadoMensaje> {
+  try {
+    const nombre  = (formData.get('nombre') as string)?.trim();
+    const correo  = (formData.get('correo') as string)?.trim();
+    const asunto  = (formData.get('asunto') as string)?.trim() || null;
+    const mensaje = (formData.get('mensaje') as string)?.trim();
+
+    if (!nombre || nombre.length < 2)
+      return { ok: false, mensaje: 'El nombre debe tener al menos 2 caracteres.' };
+    if (!correo || !correo.includes('@'))
+      return { ok: false, mensaje: 'El correo electrónico no es válido.' };
+    if (!mensaje || mensaje.length < 10)
+      return { ok: false, mensaje: 'El mensaje debe tener al menos 10 caracteres.' };
+
+    await bd.insert(mensajeContacto).values({
+      propietarioId:   1,
+      nombreRemitente: nombre,
+      correoRemitente: correo,
+      asunto,
+      mensaje,
+    });
+
+    return { ok: true, mensaje: '¡Mensaje enviado! Te responderé a la brevedad.' };
+  } catch (err) {
+    console.error('Error al guardar mensaje:', err);
+    return { ok: false, mensaje: 'Ocurrió un error. Intenta de nuevo más tarde.' };
   }
 }
