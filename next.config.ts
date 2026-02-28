@@ -24,10 +24,6 @@ const nextConfig: NextConfig = {
     // Para imágenes locales NO necesitas configuración extra
     unoptimized: false,
   },
-
-  eslint: {
-    ignoreDuringBuilds: false,
-  },
 };
 
 export default nextConfig;
