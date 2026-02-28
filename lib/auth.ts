@@ -27,7 +27,7 @@ export async function crearToken(nombreUsuario: string): Promise<string> {
 export async function verificarToken(token: string): Promise<DatosSesion | null> {
   try {
     const { payload } = await jwtVerify(token, SECRETO_JWT);
-    return payload as DatosSesion;
+    return payload as unknown as DatosSesion;
   } catch (error) {
     return null;
   }
