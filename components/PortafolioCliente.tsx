@@ -1126,8 +1126,7 @@ export default function PortafolioCliente({
           <div className="ubicacion-hero">
             <IcoUbicacion />
             {datosProp.ciudad}, {datosProp.pais}
-            {datosProp.fechaNacimiento &&
-              ` · ${new Date().getFullYear() - new Date(datosProp.fechaNacimiento).getFullYear()} años`}
+            {/* {datosProp.fechaNacimiento &&` · ${new Date().getFullYear() - new Date(datosProp.fechaNacimiento).getFullYear()} años`} */}
           </div>
 
           {/* Chips de contacto (los 3 primeros activos) */}
