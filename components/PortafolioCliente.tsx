@@ -1091,7 +1091,7 @@ export default function PortafolioCliente({
                 </div>
               </div>
               {/* Input oculto — al cambiar dispara el form action */}
-              <input
+              {/* <input
                 ref={entradaFotoRef}
                 type="file"
                 name="foto"
@@ -1101,7 +1101,7 @@ export default function PortafolioCliente({
                 onChange={(e) => {
                   if (e.target.files?.[0]) e.target.form?.requestSubmit();
                 }}
-              />
+              /> */}
             </div>
           </form>
 
