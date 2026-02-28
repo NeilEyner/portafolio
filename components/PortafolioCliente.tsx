@@ -1009,101 +1009,82 @@ export default function PortafolioCliente({
       >
         <div id="inicio">
           {/* Foto + formulario de subida via Server Action */}
-          <form action={accionFoto}>
-            <div
-              className="contenedor-foto"
-              title="Haz clic para cambiar tu foto"
-              onClick={() => entradaFotoRef.current?.click()}
+          <div className="contenedor-foto">
+            <div className="pulso-halo" />
+            <svg
+              className="anillo-giratorio"
+              width="140"
+              height="140"
+              viewBox="0 0 140 140"
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                pointerEvents: "none",
+              }}
             >
-              <div className="pulso-halo" />
-              <svg
-                className="anillo-giratorio"
-                width="140"
-                height="140"
-                viewBox="0 0 140 140"
+              <defs>
+                <linearGradient
+                  id="gradAnillo"
+                  x1="0%"
+                  y1="0%"
+                  x2="100%"
+                  y2="100%"
+                >
+                  <stop offset="0%" stopColor="var(--acento-1)" />
+                  <stop offset="50%" stopColor="var(--acento-2)" />
+                  <stop offset="100%" stopColor="var(--acento-3)" />
+                </linearGradient>
+              </defs>
+              <circle
+                cx="70"
+                cy="70"
+                r="65"
+                fill="none"
+                stroke="url(#gradAnillo)"
+                strokeWidth="2.5"
+                strokeDasharray="10 7"
+                strokeLinecap="round"
                 style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  pointerEvents: "none",
+                  animation: "girar-anillo 18s linear infinite",
+                  transformOrigin: "70px 70px",
                 }}
-              >
-                <defs>
-                  <linearGradient
-                    id="gradAnillo"
-                    x1="0%"
-                    y1="0%"
-                    x2="100%"
-                    y2="100%"
-                  >
-                    <stop offset="0%" stopColor="var(--acento-1)" />
-                    <stop offset="50%" stopColor="var(--acento-2)" />
-                    <stop offset="100%" stopColor="var(--acento-3)" />
-                  </linearGradient>
-                </defs>
-                <circle
-                  cx="70"
-                  cy="70"
-                  r="65"
-                  fill="none"
-                  stroke="url(#gradAnillo)"
-                  strokeWidth="2.5"
-                  strokeDasharray="10 7"
-                  strokeLinecap="round"
+              />
+              <circle
+                cx="70"
+                cy="70"
+                r="57"
+                fill="none"
+                stroke="url(#gradAnillo)"
+                strokeWidth="1"
+                strokeDasharray="3 12"
+                strokeLinecap="round"
+                style={{
+                  animation: "girar-anillo-inverso 12s linear infinite",
+                  transformOrigin: "70px 70px",
+                  opacity: 0.4,
+                }}
+              />
+            </svg>
+
+            <div className="foto-interna">
+              {fotoUrl ? (
+                <Image
+                  src={fotoUrl}
+                  alt={nombreCompleto}
+                  fill
                   style={{
-                    animation: "girar-anillo 18s linear infinite",
-                    transformOrigin: "70px 70px",
+                    objectFit: "cover",
+                    borderRadius: "50%",
+                    zIndex: 2,
                   }}
                 />
-                <circle
-                  cx="70"
-                  cy="70"
-                  r="57"
-                  fill="none"
-                  stroke="url(#gradAnillo)"
-                  strokeWidth="1"
-                  strokeDasharray="3 12"
-                  strokeLinecap="round"
-                  style={{
-                    animation: "girar-anillo-inverso 12s linear infinite",
-                    transformOrigin: "70px 70px",
-                    opacity: 0.4,
-                  }}
-                />
-              </svg>
-              <div className="foto-interna">
-                {fotoUrl ? (
-                  <Image
-                    src={fotoUrl}
-                    alt={nombreCompleto}
-                    fill
-                    style={{
-                      objectFit: "cover",
-                      borderRadius: "50%",
-                      zIndex: 2,
-                    }}
-                  />
-                ) : (
-                  <span className="iniciales">{datosProp.iniciales}</span>
-                )}
-                <div className="icono-camara">
-                  <IcoCamara />
-                </div>
-              </div>
-              {/* Input oculto — al cambiar dispara el form action */}
-              {/* <input
-                ref={entradaFotoRef}
-                type="file"
-                name="foto"
-                id="entrada-foto"
-                accept="image/*"
-                style={{ display: "none" }}
-                onChange={(e) => {
-                  if (e.target.files?.[0]) e.target.form?.requestSubmit();
-                }}
-              /> */}
+              ) : (
+                <span className="iniciales">{datosProp.iniciales}</span>
+              )}
+              {/* Opcional: He quitado el icono de cámara ya que ya no es editable */}
             </div>
-          </form>
+          </div>
 
           <h1 className="nombre-hero">
             <span className="texto-degradado">{nombreLinea1}</span>
